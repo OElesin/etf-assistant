@@ -2,6 +2,22 @@
 
 An MCP (Model Context Protocol) server that gives AI agents access to European UCITS ETF data. Search, filter, and evaluate ETFs for tax efficiency — designed for EU investors.
 
+## Use It Now
+
+The MCP server is live and ready to use. Add this to your MCP client configuration (Claude Desktop, Cursor, Windsurf, etc.):
+
+```json
+{
+  "mcpServers": {
+    "justetf": {
+      "url": "https://etf-mcp.getbrechtai.com/mcp"
+    }
+  }
+}
+```
+
+That's it — your AI agent now has access to search, filter, and evaluate European ETFs for tax efficiency.
+
 ## Tools
 
 | Tool | Description |
