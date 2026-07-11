@@ -1,50 +1,15 @@
-# FastAPI and ASGI
-fastapi>=0.104.1
-uvicorn[standard]>=0.24.0
-mangum>=0.17.0  # AWS Lambda adapter for FastAPI
+# Model Context Protocol
+mcp>=1.0.0
 
-# AWS SDK
-boto3>=1.34.0
-botocore>=1.34.0
-
-# Data Science & ML
-numpy>=1.26.0
-pandas>=2.1.0
-scipy>=1.11.1
-scikit-learn>=1.3.0
-
-# Portfolio Optimization
-PyPortfolioOpt>=1.5.4
-cvxpy>=1.4.0
-
-# Pydantic for data validation
-pydantic>=2.5.0
-
-# HTTP requests
-httpx>=0.25.0
+# HTTP client (scraper)
 aiohttp>=3.9.0
 
-# Date/time handling
-python-dateutil>=2.8.2
+# HTML parsing (scraper)
+beautifulsoup4>=4.12.2
+lxml>=4.9.3
 
 # Environment variables
 python-dotenv>=1.0.0
 
 # Logging
 structlog>=23.2.0
-
-# Testing
-pytest>=7.4.3
-pytest-asyncio>=0.21.1
-
-# Web scraping
-beautifulsoup4>=4.12.2
-lxml>=4.9.3
-
-# Development
-black>=23.11.0
-flake8>=6.1.0
-mypy>=1.7.0
-
-# Model Context Protocol
-mcp>=1.0.0

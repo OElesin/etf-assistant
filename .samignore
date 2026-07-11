@@ -1,0 +1,10 @@
+venv/
+.git/
+.gitignore
+.aws-sam/
+__pycache__/
+*.pyc
+data/
+README.md
+samconfig.toml
+.env

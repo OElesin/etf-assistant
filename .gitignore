@@ -27,12 +27,8 @@ share/python-wheels/
 
 # Virtual environments
 venv/
-venv_old/
 ENV/
 env/
-
-# AWS SAM build folder
-.aws-sam/
 
 # Environments / secrets
 .env
@@ -41,3 +37,10 @@ env/
 
 # OS files
 .DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# AWS SAM build folder
+.aws-sam/

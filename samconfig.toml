@@ -1,0 +1,16 @@
+# SAM deployment configuration
+# Run: sam build && sam deploy
+
+version = 0.1
+
+[default.deploy.parameters]
+stack_name = "justetf-mcp-server"
+resolve_s3 = true
+capabilities = "CAPABILITY_IAM"
+confirm_changeset = true
+region = "eu-west-1"
+parameter_overrides = "Stage=prod"
+
+[default.build.parameters]
+cached = true
+parallel = true

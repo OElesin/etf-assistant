@@ -1,174 +1,66 @@
-AWSTemplateFormatVersion: '2010-09-09'
+AWSTemplateFormatVersion: "2010-09-09"
 Transform: AWS::Serverless-2016-10-31
-Description: AmpliFolio API - Tax-Optimized Portfolio Generation with JustETF MCP Server
+Description: JustETF MCP Server - Remote MCP server on AWS Lambda with Web Adapter
 
 Parameters:
   Stage:
     Type: String
-    Default: dev
-    Description: Stage environment name (e.g. dev, prod)
+    Default: prod
+    AllowedValues: [dev, prod]
 
 Globals:
   Function:
     Timeout: 30
-    MemorySize: 1024
-    Runtime: python3.13
-
-    Environment:
-      Variables:
-        STAGE: !Ref Stage
-        AWS_REGION_NAME: !Ref "AWS::Region"
+    MemorySize: 512
 
 Resources:
-  # DynamoDB Table for ETF Data
-  EtfDataTable:
-    Type: AWS::DynamoDB::Table
-    Properties:
-      TableName: !Sub "etf-data-${Stage}"
-      BillingMode: PAY_PER_REQUEST
-      AttributeDefinitions:
-        - AttributeName: isin
-          AttributeType: S
-        - AttributeName: updated_at
-          AttributeType: S
-      KeySchema:
-        - AttributeName: isin
-          KeyType: HASH
-        - AttributeName: updated_at
-          KeyType: RANGE
-      StreamSpecification:
-        StreamViewType: NEW_AND_OLD_IMAGES
-
-  # DynamoDB Table for RL States
-  RLStatesTable:
-    Type: AWS::DynamoDB::Table
-    Properties:
-      TableName: !Sub "rl-portfolio-states-${Stage}"
-      BillingMode: PAY_PER_REQUEST
-      AttributeDefinitions:
-        - AttributeName: state_id
-          AttributeType: S
-        - AttributeName: timestamp
-          AttributeType: S
-      KeySchema:
-        - AttributeName: state_id
-          KeyType: HASH
-        - AttributeName: timestamp
-          KeyType: RANGE
-
-  # DynamoDB Table for Portfolio Performance
-  PortfolioPerformanceTable:
-    Type: AWS::DynamoDB::Table
-    Properties:
-      TableName: !Sub "portfolio-performance-${Stage}"
-      BillingMode: PAY_PER_REQUEST
-      AttributeDefinitions:
-        - AttributeName: portfolio_id
-          AttributeType: S
-        - AttributeName: date
-          AttributeType: S
-      KeySchema:
-        - AttributeName: portfolio_id
-          KeyType: HASH
-        - AttributeName: date
-          KeyType: RANGE
-
-  # S3 Bucket for Raw and Processed ETF Data
-  EtfDataBucket:
-    Type: AWS::S3::Bucket
-    Properties:
-      BucketName: !Sub "etf-data-${Stage}"
-      VersioningConfiguration:
-        Status: Enabled
-      LifecycleConfiguration:
-        Rules:
-          - Id: ArchiveOldData
-            Status: Enabled
-            Transitions:
-              - TransitionInDays: 30
-                StorageClass: STANDARD_IA
-              - TransitionInDays: 90
-                StorageClass: GLACIER
-
-  # Core API Function (FastAPI application with Mangum)
-  ApiFunction:
+  McpFunction:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: ./
-      Handler: api.handler.handler
-      Policies:
-        # IAM Policies for DynamoDB Table access
-        - Version: '2012-10-17'
-          Statement:
-            - Effect: Allow
-              Action:
-                - dynamodb:Query
-                - dynamodb:Scan
-                - dynamodb:GetItem
-                - dynamodb:PutItem
-                - dynamodb:UpdateItem
-                - dynamodb:DeleteItem
-              Resource:
-                - !GetAtt EtfDataTable.Arn
-                - !GetAtt RLStatesTable.Arn
-                - !GetAtt PortfolioPerformanceTable.Arn
-            # IAM Policy for Bedrock inference
-            - Effect: Allow
-              Action:
-                - bedrock:InvokeModel
-              Resource:
-                - "arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-pro-v1:0"
-      Events:
-        ApiGatewayProxy:
-          Type: Api
-          Properties:
-            Path: /{proxy+}
-            Method: ANY
-
-  # Scheduled Scraper Function (Daily run)
-  EtfScraperFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      CodeUri: ./
-      Handler: api.data.etf_scraper.handler
-      Timeout: 900 # 15 minutes
-      MemorySize: 2048
+      Runtime: python3.13
+      Handler: run.sh
+      Architectures:
+        - arm64
+      Layers:
+        - !Sub arn:aws:lambda:${AWS::Region}:753240598075:layer:LambdaAdapterLayerArm64:28
       Environment:
         Variables:
-          ETF_DATA_BUCKET: !Ref EtfDataBucket
-      Policies:
-        # DynamoDB Write permissions
-        - Version: '2012-10-17'
-          Statement:
-            - Effect: Allow
-              Action:
-                - dynamodb:Query
-                - dynamodb:Scan
-                - dynamodb:GetItem
-                - dynamodb:PutItem
-                - dynamodb:UpdateItem
-                - dynamodb:DeleteItem
-              Resource:
-                - !GetAtt EtfDataTable.Arn
-            # S3 read/write permissions
-            - Effect: Allow
-              Action:
-                - s3:PutObject
-                - s3:GetObject
-                - s3:ListBucket
-              Resource:
-                - !Sub "arn:aws:s3:::etf-data-${Stage}"
-                - !Sub "arn:aws:s3:::etf-data-${Stage}/*"
+          AWS_LAMBDA_EXEC_WRAPPER: /opt/bootstrap
+          AWS_LWA_PORT: "8000"
+          AWS_LWA_REMOVE_BASE_PATH: /prod
+          AWS_LWA_READINESS_CHECK_PATH: /mcp
+          AWS_LWA_READINESS_CHECK_MIN_UNHEALTHY_STATUS: 500
+          MCP_TRANSPORT: streamable-http
       Events:
-        DailyCron:
-          Type: Schedule
+        McpEndpoint:
+          Type: HttpApi
           Properties:
-            Schedule: cron(0 12 * * ? *) # Daily at 12 PM UTC
+            Path: /mcp
+            Method: ANY
+            ApiId: !Ref McpApi
+
+  McpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: !Ref Stage
+      CorsConfiguration:
+        AllowOrigins:
+          - "*"
+        AllowMethods:
+          - POST
+          - GET
+          - OPTIONS
+          - DELETE
+        AllowHeaders:
+          - Content-Type
+          - Authorization
+          - Mcp-Session-Id
 
 Outputs:
-  ApiEndpoint:
-    Description: "API Gateway HTTP Endpoint for FastAPI backend"
-    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/"
-  McpSseEndpoint:
-    Description: "MCP Server-Sent Events Endpoint URL"
-    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/mcp/sse"
+  McpEndpoint:
+    Description: Remote MCP endpoint URL
+    Value: !Sub "https://${McpApi}.execute-api.${AWS::Region}.amazonaws.com/${Stage}/mcp"
+  FunctionArn:
+    Description: Lambda function ARN
+    Value: !GetAtt McpFunction.Arn

@@ -1,13 +1,6 @@
 #!/bin/bash
+# Startup script for Lambda Web Adapter
+# This launches the FastMCP server in streamable-http mode on port 8000.
+# The Lambda Web Adapter extension forwards API Gateway requests to this process.
 
-# Activate virtual environment
-source venv/bin/activate
-
-# Install requirements if needed
-pip install -r requirements.txt
-
-# Run the Streamlit app
-streamlit run app.py
-
-# Deactivate virtual environment when the app is closed
-deactivate
+exec python server.py
