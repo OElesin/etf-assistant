@@ -86,11 +86,14 @@ Once deployed, configure your MCP client to use the remote endpoint:
 {
   "mcpServers": {
     "justetf": {
-      "url": "https://<api-id>.execute-api.eu-west-1.amazonaws.com/prod/mcp"
+      "url": "https://etf-mcp.getbrechtai.com/mcp"
     }
   }
 }
 ```
+
+> The server is also accessible via the raw API Gateway URL:
+> `https://<api-id>.execute-api.eu-west-1.amazonaws.com/prod/mcp`
 
 ### Configuration
 
