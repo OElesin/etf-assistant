@@ -281,6 +281,7 @@
             box-shadow: var(--shadow-md);
             transform: translateY(-2px);
         }
+        .tool-card.full-width { grid-column: 1 / -1; }
         .tool-card h3 {
             font-family: 'SF Mono', 'Fira Code', monospace;
             font-size: 0.85rem;
@@ -449,6 +450,75 @@
             box-shadow: var(--shadow-sm);
         }
 
+        /* Chart rendering */
+        .chart-container {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 20px;
+            margin-top: 12px;
+            max-width: 100%;
+            overflow-x: auto;
+        }
+        .chart-container h4 {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 4px;
+        }
+        .chart-container .chart-subtitle {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+        }
+        .chart-container canvas {
+            width: 100%;
+            height: 180px;
+            display: block;
+        }
+        .chart-summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+        .chart-stat {
+            background: var(--surface-2);
+            border-radius: var(--radius-sm);
+            padding: 12px;
+        }
+        .chart-stat-label {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 2px;
+        }
+        .chart-stat-value {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--text);
+        }
+        .chart-stat-value.positive { color: var(--green); }
+        .chart-stat-value.negative { color: #ef4444; }
+        .chart-legend {
+            display: flex;
+            gap: 16px;
+            margin-top: 8px;
+            font-size: 0.7rem;
+            color: var(--text-muted);
+        }
+        .chart-legend-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .chart-legend-dot {
+            width: 8px;
+            height: 3px;
+            border-radius: 2px;
+        }
+
         /* Footer */
         footer {
             padding: 48px 0;
@@ -531,7 +601,7 @@
         <div class="container fade-in">
             <div class="section-header">
                 <h2>Tools</h2>
-                <p>Four focused tools for ETF research and evaluation</p>
+                <p>Five focused tools for ETF research and evaluation</p>
             </div>
             <div class="tools-grid">
                 <div class="tool-card">
@@ -547,6 +617,10 @@
                     <p>Score an ETF's tax efficiency with a factor-by-factor breakdown for EU investors</p>
                 </div>
                 <div class="tool-card">
+                    <h3>generate_612_chart</h3>
+                    <p>6-week and 12-month performance with YoY comparison, cumulative growth, and inflation tracking</p>
+                </div>
+                <div class="tool-card full-width">
                     <h3>refresh_etf_data</h3>
                     <p>Trigger a fresh data pull from JustETF to update the ETF universe</p>
                 </div>
@@ -572,6 +646,7 @@
                     <button class="example-btn" onclick="runExample('search_low_ter')">Lowest TER ETFs</button>
                     <button class="example-btn" onclick="runExample('tax_score')">Tax efficiency score</button>
                     <button class="example-btn" onclick="runExample('details')">ETF details by ISIN</button>
+                    <button class="example-btn" onclick="runExample('chart_612')">📈 6/12 Performance Chart</button>
                 </div>
                 <div class="playground-messages" id="messages">
                     <div class="message server-msg">
@@ -584,6 +659,7 @@
                         <option value="search_etfs">search_etfs</option>
                         <option value="get_etf_details">get_etf_details</option>
                         <option value="calculate_tax_efficiency">calculate_tax_efficiency</option>
+                        <option value="generate_612_chart">generate_612_chart</option>
                     </select>
                     <input type="text" id="query-input" placeholder="e.g. world, IE00B4X9L533, Ireland..." onkeydown="if(event.key==='Enter')callTool()">
                     <button id="run-btn" onclick="callTool()">Run</button>
@@ -683,6 +759,8 @@
                     return { isin: input.toUpperCase() };
                 case 'calculate_tax_efficiency':
                     return { isin: input.toUpperCase() };
+                case 'generate_612_chart':
+                    return { tickers: input.split(',').map(t => t.trim()) };
                 default:
                     return { query: input };
             }
@@ -721,7 +799,11 @@
                         const content = json.result.content[0].text;
                         try {
                             const parsed = JSON.parse(content);
-                            addMessage('server', JSON.stringify(parsed, null, 2), true);
+                            if (tool === 'generate_612_chart' && parsed.tickers) {
+                                renderChartResult(parsed);
+                            } else {
+                                addMessage('server', JSON.stringify(parsed, null, 2), true);
+                            }
                         } catch {
                             addMessage('server', content, true);
                         }
@@ -736,6 +818,172 @@
             }
 
             runBtn.disabled = false;
+        }
+
+        function renderChartResult(data) {
+            for (const ticker of data.tickers) {
+                if (ticker.error) {
+                    addMessage('server', `Error for ${ticker.ticker}: ${ticker.error}`, false);
+                    continue;
+                }
+
+                // Summary stats
+                const s = ticker.summary;
+                const msg = document.createElement('div');
+                msg.className = 'message server-msg';
+                msg.innerHTML = `
+                    <div class="message-label server">server</div>
+                    <div class="message-content">
+                        <strong>${ticker.name}</strong> (${ticker.ticker})
+                        <div class="chart-summary" style="margin-top: 12px">
+                            <div class="chart-stat">
+                                <div class="chart-stat-label">Last Week</div>
+                                <div class="chart-stat-value ${s.last_week_return >= 0 ? 'positive' : 'negative'}">${s.last_week_return >= 0 ? '+' : ''}${s.last_week_return}%</div>
+                            </div>
+                            <div class="chart-stat">
+                                <div class="chart-stat-label">6-Week Avg</div>
+                                <div class="chart-stat-value ${s.six_week_avg_return >= 0 ? 'positive' : 'negative'}">${s.six_week_avg_return >= 0 ? '+' : ''}${s.six_week_avg_return}%</div>
+                            </div>
+                            <div class="chart-stat">
+                                <div class="chart-stat-label">TTM Return</div>
+                                <div class="chart-stat-value ${s.ttm_return >= 0 ? 'positive' : 'negative'}">${s.ttm_return >= 0 ? '+' : ''}${s.ttm_return}%</div>
+                            </div>
+                            <div class="chart-stat">
+                                <div class="chart-stat-label">Beats Inflation</div>
+                                <div class="chart-stat-value ${s.beats_inflation_12m ? 'positive' : 'negative'}">${s.beats_inflation_12m ? '✓ Yes' : '✗ No'}</div>
+                            </div>
+                        </div>
+                        <div class="chart-container">
+                            <h4>Cumulative Growth — 12 Months</h4>
+                            <div class="chart-subtitle">Normalized to 100, with YoY comparison and purchasing power</div>
+                            <canvas id="chart-12m-${ticker.ticker.replace('.', '-')}"></canvas>
+                            <div class="chart-legend">
+                                <div class="chart-legend-item"><div class="chart-legend-dot" style="background: var(--accent)"></div>Current</div>
+                                <div class="chart-legend-item"><div class="chart-legend-dot" style="background: var(--text-muted)"></div>Prior Year</div>
+                                <div class="chart-legend-item"><div class="chart-legend-dot" style="background: #ef4444"></div>Purchasing Power</div>
+                            </div>
+                        </div>
+                        <div class="chart-container" style="margin-top: 12px">
+                            <h4>Cumulative Growth — 6 Weeks</h4>
+                            <div class="chart-subtitle">Weekly resolution with inflation erosion line</div>
+                            <canvas id="chart-6w-${ticker.ticker.replace('.', '-')}"></canvas>
+                            <div class="chart-legend">
+                                <div class="chart-legend-item"><div class="chart-legend-dot" style="background: var(--accent)"></div>Current</div>
+                                <div class="chart-legend-item"><div class="chart-legend-dot" style="background: var(--text-muted)"></div>Prior Year</div>
+                                <div class="chart-legend-item"><div class="chart-legend-dot" style="background: #ef4444"></div>Purchasing Power</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                messagesEl.appendChild(msg);
+                messagesEl.scrollTop = messagesEl.scrollHeight;
+
+                // Render charts after DOM update
+                requestAnimationFrame(() => {
+                    if (ticker.cumulative.twelve_months) {
+                        drawChart(
+                            `chart-12m-${ticker.ticker.replace('.', '-')}`,
+                            ticker.cumulative.twelve_months
+                        );
+                    }
+                    if (ticker.cumulative.six_weeks) {
+                        drawChart(
+                            `chart-6w-${ticker.ticker.replace('.', '-')}`,
+                            ticker.cumulative.six_weeks
+                        );
+                    }
+                });
+            }
+        }
+
+        function drawChart(canvasId, data) {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) return;
+
+            const ctx = canvas.getContext('2d');
+            const dpr = window.devicePixelRatio || 1;
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width * dpr;
+            canvas.height = 180 * dpr;
+            ctx.scale(dpr, dpr);
+
+            const w = rect.width;
+            const h = 180;
+            const pad = { top: 16, right: 16, bottom: 28, left: 40 };
+            const plotW = w - pad.left - pad.right;
+            const plotH = h - pad.top - pad.bottom;
+
+            // Determine Y range
+            const allValues = [...data.current, ...data.prior_year, ...data.purchasing_power];
+            const yMin = Math.floor(Math.min(...allValues) - 1);
+            const yMax = Math.ceil(Math.max(...allValues) + 1);
+            const yRange = yMax - yMin;
+
+            const xStep = plotW / (data.x_labels.length - 1);
+            const toX = i => pad.left + i * xStep;
+            const toY = v => pad.top + plotH - ((v - yMin) / yRange * plotH);
+
+            // Get CSS colors
+            const styles = getComputedStyle(document.documentElement);
+            const accentColor = styles.getPropertyValue('--accent').trim();
+            const mutedColor = styles.getPropertyValue('--text-muted').trim();
+            const borderColor = styles.getPropertyValue('--border').trim();
+
+            // Grid lines
+            ctx.strokeStyle = borderColor;
+            ctx.lineWidth = 0.5;
+            const gridSteps = 4;
+            for (let i = 0; i <= gridSteps; i++) {
+                const y = pad.top + (plotH / gridSteps) * i;
+                ctx.beginPath();
+                ctx.moveTo(pad.left, y);
+                ctx.lineTo(w - pad.right, y);
+                ctx.stroke();
+
+                // Y labels
+                const val = yMax - (yRange / gridSteps) * i;
+                ctx.fillStyle = mutedColor;
+                ctx.font = '10px Inter, sans-serif';
+                ctx.textAlign = 'right';
+                ctx.fillText(val.toFixed(0), pad.left - 6, y + 3);
+            }
+
+            // X labels
+            ctx.textAlign = 'center';
+            ctx.fillStyle = mutedColor;
+            ctx.font = '10px Inter, sans-serif';
+            data.x_labels.forEach((label, i) => {
+                if (i % Math.ceil(data.x_labels.length / 7) === 0 || i === data.x_labels.length - 1) {
+                    ctx.fillText(label, toX(i), h - 6);
+                }
+            });
+
+            // Draw lines
+            function drawLine(values, color, dashed) {
+                ctx.beginPath();
+                ctx.strokeStyle = color;
+                ctx.lineWidth = dashed ? 1.5 : 2;
+                if (dashed) ctx.setLineDash([5, 4]);
+                else ctx.setLineDash([]);
+                values.forEach((v, i) => {
+                    if (i === 0) ctx.moveTo(toX(i), toY(v));
+                    else ctx.lineTo(toX(i), toY(v));
+                });
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+
+            drawLine(data.purchasing_power, '#ef4444', true);
+            drawLine(data.prior_year, mutedColor, true);
+            drawLine(data.current, accentColor, false);
+
+            // Dots on current line
+            data.current.forEach((v, i) => {
+                ctx.beginPath();
+                ctx.arc(toX(i), toY(v), 3, 0, Math.PI * 2);
+                ctx.fillStyle = accentColor;
+                ctx.fill();
+            });
         }
 
         function runExample(type) {
@@ -755,6 +1003,10 @@
                 case 'details':
                     toolSelect.value = 'get_etf_details';
                     queryInput.value = 'IE000BI8OT95';
+                    break;
+                case 'chart_612':
+                    toolSelect.value = 'generate_612_chart';
+                    queryInput.value = 'VWCE.DE';
                     break;
             }
             callTool();
