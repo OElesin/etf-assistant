@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ETF MCP Server — European ETF Data for AI Agents</title>
+    <meta name="description" content="Give your AI agent access to European UCITS ETF data. Search, filter, and evaluate ETFs for tax efficiency.">
+    <style>
+        :root {
+            --bg: #0a0a0f;
+            --surface: #12121a;
+            --surface-2: #1a1a25;
+            --border: #2a2a3a;
+            --text: #e4e4ed;
+            --text-muted: #8888a0;
+            --accent: #6366f1;
+            --accent-soft: #6366f120;
+            --green: #22c55e;
+            --green-soft: #22c55e20;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        .container { max-width: 900px; margin: 0 auto; padding: 0 24px; }
+
+        /* Header */
+        header {
+            padding: 20px 0;
+            border-bottom: 1px solid var(--border);
+        }
+        header .container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .logo {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text);
+            text-decoration: none;
+        }
+        .logo span { color: var(--accent); }
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.8rem;
+            color: var(--green);
+        }
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--green);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* Hero */
+        .hero {
+            padding: 80px 0 60px;
+            text-align: center;
+        }
+        .hero h1 {
+            font-size: 2.8rem;
+            font-weight: 700;
+            line-height: 1.2;
+            margin-bottom: 16px;
+        }
+        .hero h1 span { color: var(--accent); }
+        .hero p {
+            font-size: 1.15rem;
+            color: var(--text-muted);
+            max-width: 600px;
+            margin: 0 auto 40px;
+        }
+
+        /* Config block */
+        .config-section {
+            padding: 0 0 60px;
+        }
+        .config-label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+            text-align: center;
+        }
+        .config-block {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            position: relative;
+            overflow: hidden;
+        }
+        .config-block pre {
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            font-size: 0.85rem;
+            color: var(--text);
+            overflow-x: auto;
+        }
+        .config-block .key { color: #a78bfa; }
+        .config-block .string { color: #34d399; }
+        .copy-btn {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .copy-btn:hover { color: var(--text); border-color: var(--accent); }
+
+        /* Tools */
+        .tools-section { padding: 0 0 60px; }
+        .tools-section h2 {
+            font-size: 1.4rem;
+            margin-bottom: 20px;
+        }
+        .tools-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+        .tool-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 20px;
+        }
+        .tool-card h3 {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            color: var(--accent);
+            margin-bottom: 6px;
+        }
+        .tool-card p {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        /* Playground */
+        .playground-section { padding: 0 0 60px; }
+        .playground-section h2 {
+            font-size: 1.4rem;
+            margin-bottom: 8px;
+        }
+        .playground-section .subtitle {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            margin-bottom: 20px;
+        }
+        .playground {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        .playground-messages {
+            padding: 20px;
+            min-height: 300px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .message {
+            margin-bottom: 16px;
+            animation: fadeIn 0.3s ease;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .message-label {
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+            color: var(--text-muted);
+        }
+        .message-label.user { color: var(--accent); }
+        .message-label.server { color: var(--green); }
+        .message-content {
+            font-size: 0.85rem;
+            color: var(--text);
+            background: var(--surface-2);
+            padding: 12px 16px;
+            border-radius: 8px;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        .message-content.result {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .playground-input {
+            display: flex;
+            border-top: 1px solid var(--border);
+        }
+        .playground-input select {
+            background: var(--surface-2);
+            border: none;
+            border-right: 1px solid var(--border);
+            color: var(--text);
+            padding: 16px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            min-width: 180px;
+        }
+        .playground-input input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: var(--text);
+            padding: 16px;
+            font-size: 0.85rem;
+            outline: none;
+        }
+        .playground-input input::placeholder { color: var(--text-muted); }
+        .playground-input button {
+            background: var(--accent);
+            border: none;
+            color: white;
+            padding: 16px 24px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        .playground-input button:hover { opacity: 0.9; }
+        .playground-input button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* Examples */
+        .examples {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 16px;
+            padding: 0 20px;
+        }
+        .example-btn {
+            background: var(--accent-soft);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .example-btn:hover {
+            color: var(--accent);
+            border-color: var(--accent);
+        }
+
+        /* Footer */
+        footer {
+            padding: 40px 0;
+            border-top: 1px solid var(--border);
+            text-align: center;
+        }
+        footer p {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+        footer a { color: var(--accent); text-decoration: none; }
+        footer a:hover { text-decoration: underline; }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            .hero h1 { font-size: 2rem; }
+            .tools-grid { grid-template-columns: 1fr; }
+            .playground-input select { min-width: 120px; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <a href="/" class="logo"><span>ETF</span> MCP Server</a>
+            <div class="status">
+                <div class="status-dot"></div>
+                Live
+            </div>
+        </div>
+    </header>
+
+    <section class="hero">
+        <div class="container">
+            <h1>European ETF data<br>for <span>AI agents</span></h1>
+            <p>Give your AI assistant access to UCITS ETF search, filtering, and tax efficiency scoring. One URL, zero setup.</p>
+        </div>
+    </section>
+
+    <section class="config-section">
+        <div class="container">
+            <p class="config-label">Add to your MCP client (Claude Desktop, Cursor, Windsurf, etc.)</p>
+            <div class="config-block">
+                <button class="copy-btn" onclick="copyConfig()">Copy</button>
+                <pre>{
+  <span class="key">"mcpServers"</span>: {
+    <span class="key">"justetf"</span>: {
+      <span class="key">"url"</span>: <span class="string">"https://etf-mcp.getbrechtai.com/mcp"</span>
+    }
+  }
+}</pre>
+            </div>
+        </div>
+    </section>
+
+    <section class="tools-section">
+        <div class="container">
+            <h2>Tools</h2>
+            <div class="tools-grid">
+                <div class="tool-card">
+                    <h3>search_etfs</h3>
+                    <p>Search and filter by name, ISIN, domicile, TER, AUM, and distribution policy</p>
+                </div>
+                <div class="tool-card">
+                    <h3>get_etf_details</h3>
+                    <p>Full details for any ETF by ISIN — holdings, replication, currency, and more</p>
+                </div>
+                <div class="tool-card">
+                    <h3>calculate_tax_efficiency</h3>
+                    <p>Score an ETF's tax efficiency with a factor-by-factor breakdown for EU investors</p>
+                </div>
+                <div class="tool-card">
+                    <h3>refresh_etf_data</h3>
+                    <p>Trigger a fresh data pull from JustETF to update the ETF universe</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="playground-section">
+        <div class="container">
+            <h2>Try it live</h2>
+            <p class="subtitle">Call the MCP tools directly from your browser</p>
+            <div class="playground">
+                <div class="examples">
+                    <button class="example-btn" onclick="runExample('search_acc')">Accumulating Irish ETFs</button>
+                    <button class="example-btn" onclick="runExample('search_low_ter')">Lowest TER ETFs</button>
+                    <button class="example-btn" onclick="runExample('tax_score')">Tax efficiency score</button>
+                    <button class="example-btn" onclick="runExample('details')">ETF details by ISIN</button>
+                </div>
+                <div class="playground-messages" id="messages">
+                    <div class="message">
+                        <div class="message-label server">server</div>
+                        <div class="message-content">Ready. Select a tool and run a query, or try one of the examples above.</div>
+                    </div>
+                </div>
+                <div class="playground-input">
+                    <select id="tool-select">
+                        <option value="search_etfs">search_etfs</option>
+                        <option value="get_etf_details">get_etf_details</option>
+                        <option value="calculate_tax_efficiency">calculate_tax_efficiency</option>
+                    </select>
+                    <input type="text" id="query-input" placeholder="e.g. world, IE00B4X9L533, Ireland..." onkeydown="if(event.key==='Enter')callTool()">
+                    <button id="run-btn" onclick="callTool()">Run</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <div class="container">
+            <p>
+                Open source on <a href="https://github.com/OElesin/etf-assistant" target="_blank">GitHub</a> ·
+                Built by <a href="https://linkedin.com/in/olaleaborede" target="_blank">Lekan Elesin</a> ·
+                Data from <a href="https://justetf.com" target="_blank">JustETF</a>
+            </p>
+        </div>
+    </footer>
+
+    <script>
+        const MCP_URL = 'https://etf-mcp.getbrechtai.com/mcp';
+        const messagesEl = document.getElementById('messages');
+        const toolSelect = document.getElementById('tool-select');
+        const queryInput = document.getElementById('query-input');
+        const runBtn = document.getElementById('run-btn');
+
+        function copyConfig() {
+            const config = `{
+  "mcpServers": {
+    "justetf": {
+      "url": "https://etf-mcp.getbrechtai.com/mcp"
+    }
+  }
+}`;
+            navigator.clipboard.writeText(config);
+            const btn = document.querySelector('.copy-btn');
+            btn.textContent = 'Copied!';
+            setTimeout(() => btn.textContent = 'Copy', 2000);
+        }
+
+        function addMessage(label, content, isResult) {
+            const msg = document.createElement('div');
+            msg.className = 'message';
+            msg.innerHTML = `
+                <div class="message-label ${label}">${label}</div>
+                <div class="message-content ${isResult ? 'result' : ''}">${escapeHtml(content)}</div>
+            `;
+            messagesEl.appendChild(msg);
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+        }
+
+        function escapeHtml(str) {
+            return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+
+        function buildArgs(tool, input) {
+            switch (tool) {
+                case 'search_etfs':
+                    if (input.toLowerCase() === 'ireland' || input.toLowerCase() === 'luxembourg') {
+                        return { domicile: input, accumulating_only: true, limit: 5 };
+                    }
+                    return { query: input, limit: 5 };
+                case 'get_etf_details':
+                    return { isin: input.toUpperCase() };
+                case 'calculate_tax_efficiency':
+                    return { isin: input.toUpperCase() };
+                default:
+                    return { query: input };
+            }
+        }
+
+        async function callTool() {
+            const tool = toolSelect.value;
+            const input = queryInput.value.trim();
+            if (!input) return;
+
+            addMessage('user', `${tool}(${input})`);
+            queryInput.value = '';
+            runBtn.disabled = true;
+
+            try {
+                const args = buildArgs(tool, input);
+                const response = await fetch(MCP_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json, text/event-stream'
+                    },
+                    body: JSON.stringify({
+                        jsonrpc: '2.0',
+                        id: Date.now(),
+                        method: 'tools/call',
+                        params: { name: tool, arguments: args }
+                    })
+                });
+
+                const text = await response.text();
+                const dataLine = text.split('\n').find(l => l.startsWith('data: '));
+                if (dataLine) {
+                    const json = JSON.parse(dataLine.slice(6));
+                    if (json.result && json.result.content) {
+                        const content = json.result.content[0].text;
+                        try {
+                            const parsed = JSON.parse(content);
+                            addMessage('server', JSON.stringify(parsed, null, 2), true);
+                        } catch {
+                            addMessage('server', content, true);
+                        }
+                    } else if (json.error) {
+                        addMessage('server', `Error: ${json.error.message}`, false);
+                    }
+                } else {
+                    addMessage('server', 'Unexpected response format', false);
+                }
+            } catch (err) {
+                addMessage('server', `Connection error: ${err.message}`, false);
+            }
+
+            runBtn.disabled = false;
+        }
+
+        function runExample(type) {
+            switch (type) {
+                case 'search_acc':
+                    toolSelect.value = 'search_etfs';
+                    queryInput.value = 'Ireland';
+                    break;
+                case 'search_low_ter':
+                    toolSelect.value = 'search_etfs';
+                    queryInput.value = 'world';
+                    break;
+                case 'tax_score':
+                    toolSelect.value = 'calculate_tax_efficiency';
+                    queryInput.value = 'IE00B4X9L533';
+                    break;
+                case 'details':
+                    toolSelect.value = 'get_etf_details';
+                    queryInput.value = 'IE000BI8OT95';
+                    break;
+            }
+            callTool();
+        }
+    </script>
+</body>
+</html>
