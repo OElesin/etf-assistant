@@ -180,5 +180,41 @@ async def refresh_etf_data() -> str:
         return json.dumps({"status": "failed", "error": str(e)}, indent=2)
 
 
+@mcp.tool()
+def generate_612_chart(
+    tickers: list[str],
+    inflation_rate: Optional[float] = None,
+    render: bool = False,
+) -> str:
+    """
+    Generate 6-week and 12-month ETF performance data with year-over-year comparison.
+
+    Returns structured JSON with weekly/monthly returns, cumulative growth curves,
+    and summary metrics including inflation-adjusted purchasing power.
+
+    Use Yahoo Finance ticker symbols (e.g., VWCE.DE for Xetra-listed ETFs).
+
+    Args:
+        tickers: List of Yahoo Finance ticker symbols (e.g., ["VWCE.DE", "CSPX.L"]).
+        inflation_rate: Annual inflation rate as decimal (e.g., 0.022 for 2.2%). Defaults to current Eurozone rate.
+        render: If True, also includes a Plotly JSON spec ({data, layout}) for direct rendering.
+    """
+    try:
+        from src.performance import fetch_performance_data, generate_plotly_spec
+
+        kwargs = {}
+        if inflation_rate is not None:
+            kwargs["inflation_rate"] = inflation_rate
+
+        data = fetch_performance_data(tickers, **kwargs)
+
+        if render:
+            data["plotly_spec"] = generate_plotly_spec(data)
+
+        return json.dumps(data, indent=2)
+    except Exception as e:
+        return json.dumps({"error": str(e)}, indent=2)
+
+
 if __name__ == "__main__":
     mcp.run(transport=TRANSPORT)

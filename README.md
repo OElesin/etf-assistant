@@ -25,6 +25,7 @@ That's it — your AI agent now has access to search, filter, and evaluate Europ
 | `search_etfs` | Search/filter the ETF universe by name, ISIN, domicile, TER, AUM, distribution policy |
 | `get_etf_details` | Get full details for a specific ETF by ISIN |
 | `calculate_tax_efficiency` | Score an ETF's tax efficiency with a detailed breakdown |
+| `generate_612_chart` | 6-week and 12-month performance data with YoY comparison, cumulative growth, and inflation tracking |
 | `refresh_etf_data` | Trigger a fresh scrape of JustETF to update local data |
 
 ## Quick Start (Local)
@@ -124,15 +125,18 @@ Once deployed, configure your MCP client to use the remote endpoint:
 
 ```
 etf-assistant/
-├── server.py           # MCP server entry point (4 tools)
+├── server.py           # MCP server entry point (5 tools)
 ├── run.sh              # Lambda Web Adapter startup script
 ├── src/
 │   ├── etf_data.py     # ETF data loading and normalization
+│   ├── performance.py  # 6/12 performance calculations (yfinance)
 │   └── scraper.py      # JustETF web scraper
 ├── output.json         # Cached ETF data (primary)
 ├── demo.json           # Demo ETF dataset (fallback)
 ├── data/
 │   └── etf_data.csv    # Raw CSV export
+├── landing-page/
+│   └── index.html      # Landing page with interactive playground
 ├── template.yaml       # SAM template (Lambda + API Gateway)
 ├── samconfig.toml      # SAM deployment config
 ├── requirements.txt

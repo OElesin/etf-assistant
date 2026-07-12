@@ -8,6 +8,10 @@ aiohttp>=3.9.0
 beautifulsoup4>=4.12.2
 lxml>=4.9.3
 
+# ETF price data (performance tool)
+yfinance>=0.2.0
+pandas>=2.1.0
+
 # Environment variables
 python-dotenv>=1.0.0
 
